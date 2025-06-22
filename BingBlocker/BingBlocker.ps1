@@ -1,24 +1,36 @@
 <#
 .SYNOPSIS
-    BingBlocker - Bing検索を無効化するツール
+    BingBlocker - Disable Bing Search Tool
 
 .DESCRIPTION
-    このスクリプトは、Windowsのレジストリを操作してBing検索を無効化します。
-    管理者権限で実行する必要があります。
+    This script modifies Windows registry to disable Bing search.
+    Administrator privileges are required.
 
 .NOTES
-    作成者: BingBlocker
-    バージョン: 1.0
-    作成日: 2025/6/22
+    Author: BingBlocker
+    Version: 1.0
+    Date: 2025/6/22
 #>
 
 # 文字コードをUTF-8に設定
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+$OutputEncoding = [System.Text.Encoding]::UTF8
 
 # 管理者権限の確認
 function Test-Administrator {
     $currentUser = New-Object Security.Principal.WindowsPrincipal([Security.Principal.WindowsIdentity]::GetCurrent())
-    $currentUser.IsInRole([Security.Principal.WindowsBuiltinRole]::Administrator)
+    return $currentUser.IsInRole([Security.Principal.WindowsBuiltinRole]::Administrator)
+}
+
+# 管理者権限の確認（バッチファイルで既に確認済み）
+function Confirm-Administrator {
+    if (-not (Test-Administrator)) {
+        Write-Host "This script requires administrator privileges." -ForegroundColor Red
+        Write-Host "Please run the RunBingBlocker.bat file as administrator." -ForegroundColor Red
+        Write-Host "`nPress any key to exit..." -ForegroundColor Cyan
+        $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
+        exit
+    }
 }
 
 # レジストリのバックアップ
@@ -43,18 +55,18 @@ function Backup-Registry {
             $parentPath = Split-Path -Path $regPath -Parent
             $leafName = Split-Path -Path $regPath -Leaf
             
-            # レジストリエクスポートコマンドを実行
+            # Execute registry export command
             $regExportCmd = "reg export `"$Path`" `"$backupFile`" /y"
             Invoke-Expression -Command $regExportCmd | Out-Null
             
-            Write-Host "レジストリのバックアップが完了しました: $backupFile" -ForegroundColor Green
+            Write-Host "Registry backup completed: $backupFile" -ForegroundColor Green
             return $backupFile
         } else {
-            Write-Host "指定されたレジストリパスが存在しないため、バックアップは作成されませんでした。" -ForegroundColor Yellow
+            Write-Host "The specified registry path does not exist. No backup was created." -ForegroundColor Yellow
             return $null
         }
     } catch {
-        Write-Host "レジストリのバックアップ中にエラーが発生しました: $_" -ForegroundColor Red
+        Write-Host "Error occurred during registry backup: $_" -ForegroundColor Red
         return $null
     }
 }
@@ -68,54 +80,54 @@ function Main {
     $valueData = 1
     
     # 管理者権限の確認
-    if (-not (Test-Administrator)) {
-        Write-Host "このスクリプトは管理者権限で実行する必要があります。" -ForegroundColor Red
-        Write-Host "PowerShellを管理者として実行し、再度スクリプトを実行してください。" -ForegroundColor Red
-        return
-    }
+    Confirm-Administrator
     
     # レジストリのバックアップ
     $backupFile = Backup-Registry -Path $registryPath
     
     try {
-        # レジストリキーの存在確認
+        # Check registry key existence
         $regPathPS = $registryPath.Replace("HKEY_CURRENT_USER", "HKCU:")
         $explorerPathPS = $explorerPath.Replace("HKEY_CURRENT_USER", "HKCU:")
         
-        # Windowsキーの存在確認
+        # Check Windows key existence
         if (-not (Test-Path -Path $regPathPS)) {
-            Write-Host "レジストリキー $registryPath が存在しません。作成します..." -ForegroundColor Yellow
+            Write-Host "Registry key $registryPath does not exist. Creating..." -ForegroundColor Yellow
             New-Item -Path $regPathPS -Force | Out-Null
         }
         
-        # Explorerキーの存在確認
+        # Check Explorer key existence
         if (-not (Test-Path -Path $explorerPathPS)) {
-            Write-Host "レジストリキー $explorerPath が存在しません。作成します..." -ForegroundColor Yellow
+            Write-Host "Registry key $explorerPath does not exist. Creating..." -ForegroundColor Yellow
             New-Item -Path $explorerPathPS -Force | Out-Null
         }
         
-        # DWORD値の作成/変更
+        # Create/modify DWORD value
         Set-ItemProperty -Path $explorerPathPS -Name $valueName -Value $valueData -Type DWord -Force
         
-        Write-Host "Bing検索が無効化されました。" -ForegroundColor Green
-        Write-Host "設定を有効にするには、システムを再起動する必要があります。" -ForegroundColor Yellow
+        Write-Host "Bing search has been disabled." -ForegroundColor Green
+        Write-Host "You need to restart your system to apply the settings." -ForegroundColor Yellow
         
-        # 再起動の確認
-        $restart = Read-Host "今すぐ再起動しますか？ (Y/N)"
+        # Confirm restart
+        $restart = Read-Host "Do you want to restart now? (Y/N)"
         if ($restart -eq "Y" -or $restart -eq "y") {
-            Write-Host "システムを再起動します..." -ForegroundColor Yellow
+            Write-Host "Restarting system..." -ForegroundColor Yellow
             Restart-Computer -Force
         } else {
-            Write-Host "後で手動でシステムを再起動してください。" -ForegroundColor Yellow
+            Write-Host "Please restart your system manually later." -ForegroundColor Yellow
         }
     } catch {
-        Write-Host "エラーが発生しました: $_" -ForegroundColor Red
+        Write-Host "An error occurred: $_" -ForegroundColor Red
         
         if ($backupFile -ne $null) {
-            Write-Host "バックアップファイルから復元することができます: $backupFile" -ForegroundColor Yellow
+            Write-Host "You can restore from the backup file: $backupFile" -ForegroundColor Yellow
         }
     }
 }
 
 # スクリプトの実行
 Main
+
+# スクリプト終了前に一時停止
+Write-Host "`nPress any key to exit..." -ForegroundColor Cyan
+$null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")

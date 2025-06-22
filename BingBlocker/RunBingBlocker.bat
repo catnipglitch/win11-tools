@@ -1,16 +1,26 @@
 @echo off
-chcp 932 > nul
-REM BingBlocker実行バッチファイル
-REM 管理者権限でPowerShellスクリプトを実行します
+chcp 437 > nul
+title BingBlocker
 
-echo BingBlocker - Bing検索を無効化するツール
+echo BingBlocker - Disable Bing Search Tool
 echo.
-echo このツールは管理者権限で実行する必要があります。
+echo This tool requires administrator privileges.
 echo.
 
-REM 管理者権限で実行
-powershell -Command "Start-Process powershell -ArgumentList '-ExecutionPolicy Bypass -File \"%~dp0BingBlocker.ps1\"' -Verb RunAs"
+REM Check for admin rights
+NET SESSION >nul 2>&1
+if %ERRORLEVEL% neq 0 (
+    echo Please run this script as Administrator.
+    echo Right-click on the batch file and select "Run as administrator".
+    echo.
+    pause
+    exit
+)
+
+REM Run PowerShell script
+echo Running PowerShell script...
+powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0BingBlocker.ps1"
 
 echo.
-echo 処理が完了しました。
+echo Process completed.
 pause
